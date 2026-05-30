@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AquaCheck — Klasifikasi Kualitas Air Minum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ── CSS VARIABLES ─────────────────────────────────────────────── */
+:root {
+  --bg:        #050d1a;
+  --surface:   #0b1829;
+  --surface2:  #0f2035;
+  --border:    rgba(0,200,255,0.12);
+  --accent:    #00c8ff;
+  --accent2:   #00ff9d;
+  --danger:    #ff4d6d;
+  --text:      #e0f4ff;
+  --muted:     #5a7a96;
+  --mono:      'Space Mono', monospace;
+  --sans:      'Syne', sans-serif;
+}
+
+/* ── RESET ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── ANIMATED BACKGROUND ────────────────────────────────────────── */
+.bg-grid {
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,200,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.bg-glow {
+  position: fixed; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse 60% 40% at 20% 30%, rgba(0,200,255,.07) 0%, transparent 70%),
+              radial-gradient(ellipse 50% 50% at 80% 70%, rgba(0,255,157,.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── LAYOUT ─────────────────────────────────────────────────────── */
+.wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+header {
+  padding: 48px 0 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 48px;
+}
+.header-inner { display: flex; align-items: center; gap: 20px; }
+.logo-mark {
+  width: 52px; height: 52px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+  box-shadow: 0 0 24px rgba(0,200,255,.4);
+}
+.logo-text h1 {
+  font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
+  color: var(--text);
+}
+.logo-text p { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+.badge-rf {
+  margin-left: auto;
+  background: rgba(0,200,255,.1); border: 1px solid var(--border);
+  padding: 6px 14px; border-radius: 99px;
+  font-family: var(--mono); font-size: 11px; color: var(--accent);
+  letter-spacing: 1px; white-space: nowrap;
+}
+
+/* ── STATS BAR ───────────────────────────────────────────────────── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin-bottom: 48px;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.stat-icon { font-size: 28px; }
+.stat-val  { font-size: 22px; font-weight: 800; color: var(--accent); font-family: var(--mono); }
+.stat-lbl  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── MAIN GRID ───────────────────────────────────────────────────── */
+.main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+@media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+/* ── FORM PANEL ──────────────────────────────────────────────────── */
+.form-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 32px;
+}
+.panel-title {
+  font-size: 13px; font-family: var(--mono); color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 28px;
+  display: flex; align-items: center; gap: 10px;
+}
+.panel-title::before {
+  content: ''; width: 24px; height: 2px;
+  background: var(--accent); display: block;
+}
+
+.param-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 600px) { .param-grid { grid-template-columns: 1fr; } }
+
+.param-field label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-family: var(--mono); color: var(--muted);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.param-field label .lbl-icon { font-size: 14px; }
+
+.param-field input[type="number"] {
+  width: 100%; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; color: var(--text);
+  font-family: var(--mono); font-size: 14px;
+  transition: border-color .2s, box-shadow .2s;
+  outline: none;
+}
+.param-field input[type="number"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,200,255,.1);
+}
+.param-hint { font-size: 10px; color: var(--muted); margin-top: 5px; font-family: var(--mono); }
+
+/* ── PREDICT BUTTON ──────────────────────────────────────────────── */
+.btn-predict {
+  margin-top: 32px; width: 100%; padding: 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none; border-radius: 10px; cursor: pointer;
+  font-family: var(--sans); font-size: 15px; font-weight: 700;
+  color: var(--bg); letter-spacing: 0.5px;
+  transition: opacity .2s, transform .1s, box-shadow .2s;
+  box-shadow: 0 4px 20px rgba(0,200,255,.3);
+  position: relative; overflow: hidden;
+}
+.btn-predict:hover { opacity: .9; box-shadow: 0 6px 28px rgba(0,200,255,.5); transform: translateY(-1px); }
+.btn-predict:active { transform: translateY(0); }
+.btn-predict.loading { opacity: .6; pointer-events: none; }
+
+/* Loading spinner */
+.spinner {
+  display: none; width: 16px; height: 16px;
+  border: 2px solid rgba(5,13,26,.3); border-top-color: var(--bg);
+  border-radius: 50%; animation: spin .7s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+.loading .spinner { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESULT PANEL ────────────────────────────────────────────────── */
+.result-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px;
+  position: sticky; top: 24px;
+}
+.result-placeholder {
+  text-align: center; padding: 40px 20px; color: var(--muted);
+}
+.result-placeholder .ph-icon { font-size: 48px; margin-bottom: 12px; opacity: .4; }
+.result-placeholder p { font-size: 13px; font-family: var(--mono); }
+
+.result-content { display: none; }
+.result-content.show { display: block; animation: fadeUp .4s ease; }
+@keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+.verdict {
+  text-align: center; padding: 28px;
+  border-radius: 12px; margin-bottom: 24px;
+  border: 1px solid;
+}
+.verdict.safe   { background: rgba(0,255,157,.07); border-color: rgba(0,255,157,.3); }
+.verdict.unsafe { background: rgba(255,77,109,.07); border-color: rgba(255,77,109,.3); }
+
+.verdict-icon  { font-size: 44px; margin-bottom: 8px; }
+.verdict-label { font-size: 18px; font-weight: 800; }
+.verdict.safe   .verdict-label { color: var(--accent2); }
+.verdict.unsafe .verdict-label { color: var(--danger); }
+.verdict-conf  { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Probability bars */
+.prob-section { margin-bottom: 20px; }
+.prob-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.prob-lbl { font-size: 11px; font-family: var(--mono); color: var(--muted); }
+.prob-val { font-size: 11px; font-family: var(--mono); font-weight: 700; }
+.prob-bar { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+.prob-fill { height: 100%; border-radius: 99px; transition: width .8s cubic-bezier(.16,1,.3,1); width: 0; }
+.prob-fill.safe-fill   { background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+.prob-fill.unsafe-fill { background: linear-gradient(90deg, var(--danger), #ff8fa3); }
+
+/* Param checklist */
+.param-check { margin-top: 20px; }
+.param-check-title { font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+.check-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 7px; margin-bottom: 6px;
+  font-size: 12px;
+}
+.check-item.ok    { background: rgba(0,255,157,.06); }
+.check-item.bad   { background: rgba(255,77,109,.06); }
+.check-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.check-item.ok  .check-dot { background: var(--accent2); }
+.check-item.bad .check-dot { background: var(--danger); }
+.check-name { flex: 1; color: var(--text); }
+.check-val  { font-family: var(--mono); font-size: 11px; }
+.check-item.ok  .check-val { color: var(--accent2); }
+.check-item.bad .check-val { color: var(--danger); }
+
+/* ── FEATURE IMPORTANCE ──────────────────────────────────────────── */
+.importance-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px; margin-top: 24px;
+}
+.imp-row { margin-bottom: 12px; }
+.imp-meta { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.imp-feat { font-family: var(--mono); font-size: 12px; color: var(--text); }
+.imp-pct  { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.imp-bar-wrap { height: 5px; background: var(--bg); border-radius: 99px; overflow: hidden; }
+.imp-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 1s ease; }
+
+/* ── FOOTER ──────────────────────────────────────────────────────── */
+footer {
+  margin-top: 80px; padding: 28px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div class="logo-mark">💧</div>
+      <div class="logo-text">
+        <h1>AquaCheck</h1>
+        <p>Water Quality Classifier — Random Forest</p>
+      </div>
+      <div class="badge-rf">🌲 RF · 200 Trees · 80.34% Acc</div>
+    </div>
+  </header>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-icon">🎯</div>
+      <div>
+        <div class="stat-val">80.34%</div>
+        <div class="stat-lbl">Akurasi Model</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🌲</div>
+      <div>
+        <div class="stat-val">200</div>
+        <div class="stat-lbl">Jumlah Pohon</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📊</div>
+      <div>
+        <div class="stat-val">9</div>
+        <div class="stat-lbl">Parameter Analisis</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- LEFT: FORM -->
+    <div>
+      <div class="form-panel">
+        <div class="panel-title">Input Parameter Air</div>
+        <form id="predictForm">
+          <div class="param-grid">
+            {% for feat in features %}
+            <div class="param-field">
+              <label for="{{ feat.key }}">
+                <span class="lbl-icon">{{ feat.icon }}</span>
+                {{ feat.label }}
+                {% if feat.unit %}<span style="color:var(--accent);font-size:10px;">({{ feat.unit }})</span>{% endif %}
+              </label>
+              <input type="number" id="{{ feat.key }}" name="{{ feat.key }}"
+                     min="{{ feat.min }}" max="{{ feat.max }}" step="{{ feat.step }}"
+                     value="{{ feat.default }}" required />
+              <div class="param-hint">Aman: {{ feat.safe_range }} · {{ feat.description }}</div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <button type="submit" class="btn-predict" id="btnPredict">
+            <span class="spinner"></span>
+            <span class="btn-text">🔍 Analisis Kualitas Air</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- FEATURE IMPORTANCE -->
+      <div class="importance-section">
+        <div class="panel-title">Feature Importance</div>
+        {% for item in feat_imp %}
+        <div class="imp-row">
+          <div class="imp-meta">
+            <span class="imp-feat">{{ item.feature }}</span>
+            <span class="imp-pct">{{ "%.1f"|format(item.importance * 100) }}%</span>
+          </div>
+          <div class="imp-bar-wrap">
+            <div class="imp-bar-fill" style="width: {{ item.importance * 100 }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULT -->
+    <div class="result-panel">
+      <div class="panel-title">Hasil Prediksi</div>
+
+      <div class="result-placeholder" id="placeholder">
+        <div class="ph-icon">🔬</div>
+        <p>Masukkan parameter air<br>lalu klik Analisis</p>
+      </div>
+
+      <div class="result-content" id="resultContent">
+
+        <div class="verdict" id="verdict">
+          <div class="verdict-icon" id="verdictIcon"></div>
+          <div class="verdict-label" id="verdictLabel"></div>
+          <div class="verdict-conf" id="verdictConf"></div>
+        </div>
+
+        <div class="prob-section">
+          <div class="prob-row">
+            <span class="prob-lbl">Layak Minum</span>
+            <span class="prob-val safe-color" id="probSafeVal">—</span>
+          </div>
+          <div class="prob-bar"><div class="prob-fill safe-fill" id="probSafeBar"></div></div>
+
+          <div class="prob-row">
+            <span class="prob-lbl">Tidak Layak</span>
+            <span class="prob-val" id="probUnsafeVal">—</span>
+          </div>
+          <div class="prob-bar"><div class="prob-fill unsafe-fill" id="probUnsafeBar"></div></div>
+        </div>
+
+        <div class="param-check">
+          <div class="param-check-title">Analisis Per Parameter</div>
+          <div id="paramList"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main-grid -->
+
+  <footer>
+    AquaCheck · Random Forest Classifier · Teknik Informatika
+    &nbsp;|&nbsp; Tugas 8 – Kecerdasan Buatan
+  </footer>
+</div><!-- end wrap -->
+
+<script>
+document.getElementById('predictForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btnPredict');
+  btn.classList.add('loading');
+  btn.querySelector('.btn-text').textContent = 'Menganalisis...';
+
+  const formData = {};
+  e.target.querySelectorAll('input').forEach(inp => {
+    formData[inp.name] = parseFloat(inp.value);
+  });
+
+  try {
+    const res  = await fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    const data = await res.json();
+    if (data.status === 'success') showResult(data);
+    else alert('Error: ' + data.message);
+  } catch (err) {
+    alert('Terjadi kesalahan koneksi.');
+  } finally {
+    btn.classList.remove('loading');
+    btn.querySelector('.btn-text').textContent = '🔍 Analisis Kualitas Air';
+  }
+});
+
+function showResult(data) {
+  const safe   = data.prediction === 1;
+  const verdict = document.getElementById('verdict');
+  verdict.className = 'verdict ' + (safe ? 'safe' : 'unsafe');
+  document.getElementById('verdictIcon').textContent  = safe ? '✅' : '❌';
+  document.getElementById('verdictLabel').textContent = safe ? 'LAYAK MINUM' : 'TIDAK LAYAK';
+  document.getElementById('verdictConf').textContent  = `Kepercayaan: ${data.confidence}%`;
+
+  // Probability bars
+  document.getElementById('probSafeVal').textContent    = data.proba_layak + '%';
+  document.getElementById('probUnsafeVal').textContent  = data.proba_tidak + '%';
+  setTimeout(() => {
+    document.getElementById('probSafeBar').style.width   = data.proba_layak + '%';
+    document.getElementById('probUnsafeBar').style.width = data.proba_tidak + '%';
+  }, 50);
+
+  // Param checklist
+  const list = document.getElementById('paramList');
+  list.innerHTML = '';
+  data.param_analysis.forEach(p => {
+    const cls  = p.safe ? 'ok' : 'bad';
+    const div  = document.createElement('div');
+    div.className = `check-item ${cls}`;
+    div.innerHTML = `
+      <div class="check-dot"></div>
+      <span class="lbl-icon">${p.icon}</span>
+      <span class="check-name">${p.label}</span>
+      <span class="check-val">${p.value} ${p.unit}</span>
+    `;
+    list.appendChild(div);
+  });
+
+  // Show
+  document.getElementById('placeholder').style.display = 'none';
+  const rc = document.getElementById('resultContent');
+  rc.classList.remove('show');
+  void rc.offsetWidth; // reflow
+  rc.classList.add('show');
+}
+</script>
+</body>
+</html>
