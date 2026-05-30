@@ -12,15 +12,51 @@ import os
 
 app = Flask(__name__)
 
-# ── Load model artefacts ────────────────────────────────────────────────────────
+# ── Auto-train jika model belum ada ────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(BASE_DIR, 'model')
+MODEL_PATH  = os.path.join(MODEL_DIR, 'rf_model.pkl')
+SCALER_PATH = os.path.join(MODEL_DIR, 'scaler.pkl')
+FEAT_PATH   = os.path.join(MODEL_DIR, 'feature_names.pkl')
 
-with open(os.path.join(BASE_DIR, 'model', 'rf_model.pkl'), 'rb') as f:
-    model = pickle.load(f)
-with open(os.path.join(BASE_DIR, 'model', 'scaler.pkl'), 'rb') as f:
-    scaler = pickle.load(f)
-with open(os.path.join(BASE_DIR, 'model', 'feature_names.pkl'), 'rb') as f:
-    feature_names = pickle.load(f)
+if not os.path.exists(MODEL_PATH):
+    print("⚠️  Model belum ada, melatih sekarang...")
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+
+    CSV_PATH = os.path.join(MODEL_DIR, 'water_potability.csv')
+    df = pd.read_csv(CSV_PATH)
+
+    # Handle missing values
+    for col in df.columns[df.isnull().any()]:
+        for cls in df["Potability"].unique():
+            med = df.loc[df["Potability"] == cls, col].median()
+            df.loc[(df["Potability"] == cls) & (df[col].isnull()), col] = med
+
+    X = df.drop("Potability", axis=1)
+    y = df["Potability"].astype(int)
+
+    X_train, _, y_train, _ = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y)
+
+    scaler_fit = StandardScaler()
+    X_train_sc = scaler_fit.fit_transform(X_train)
+
+    rf = RandomForestClassifier(
+        n_estimators=200, max_depth=15, min_samples_split=4,
+        min_samples_leaf=2, class_weight="balanced", random_state=42, n_jobs=-1)
+    rf.fit(X_train_sc, y_train)
+
+    with open(MODEL_PATH,  'wb') as f: pickle.dump(rf, f)
+    with open(SCALER_PATH, 'wb') as f: pickle.dump(scaler_fit, f)
+    with open(FEAT_PATH,   'wb') as f: pickle.dump(list(X.columns), f)
+    print("✅ Model berhasil dilatih dan disimpan!")
+
+# ── Load model artefacts ────────────────────────────────────────────────────────
+with open(MODEL_PATH,  'rb') as f: model = pickle.load(f)
+with open(SCALER_PATH, 'rb') as f: scaler = pickle.load(f)
+with open(FEAT_PATH,   'rb') as f: feature_names = pickle.load(f)
 
 # ── Feature metadata untuk UI ──────────────────────────────────────────────────
 FEATURES = [
